@@ -22,7 +22,8 @@ public enum AlertType
     BlacklistedExtension,
     DeveloperModeExtension,
     SecurityExtensionRemoved,
-    NewBrowserExtension
+    NewBrowserExtension,
+    HighRiskFile
 }
 
 public class Alert

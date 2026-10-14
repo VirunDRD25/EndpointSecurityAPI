@@ -35,6 +35,11 @@ namespace EndpointSecurityAPI.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_utc");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("email");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
@@ -42,6 +47,10 @@ namespace EndpointSecurityAPI.Migrations
                     b.Property<DateTime?>("LastLoginUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_login_utc");
+
+                    b.Property<bool>("NotificationsMuted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("notifications_muted");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -409,6 +418,90 @@ namespace EndpointSecurityAPI.Migrations
                     b.ToTable("enrollment_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("EndpointSecurityAPI.Entities.FileRiskRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("category");
+
+                    b.Property<DateTime>("DetectedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("detected_at");
+
+                    b.Property<int>("DeviceId")
+                        .HasColumnType("integer")
+                        .HasColumnName("device_id");
+
+                    b.Property<string>("Extension")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("extension");
+
+                    b.Property<DateTime>("FileCreatedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("file_created_utc");
+
+                    b.Property<DateTime>("FileModifiedUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("file_modified_utc");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("file_path");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("location");
+
+                    b.Property<string>("RiskLevel")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("risk_level");
+
+                    b.Property<string[]>("RiskReasons")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("risk_reasons");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("sha256");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
+
+                    b.HasKey("Id")
+                        .HasName("pk_file_risk_records");
+
+                    b.HasIndex("Sha256")
+                        .HasDatabaseName("ix_file_risk_records_sha256");
+
+                    b.HasIndex("DeviceId", "FilePath")
+                        .HasDatabaseName("ix_file_risk_records_device_id_file_path");
+
+                    b.ToTable("file_risk_records", (string)null);
+                });
+
             modelBuilder.Entity("EndpointSecurityAPI.Entities.InstalledSoftwareRecord", b =>
                 {
                     b.Property<int>("Id")
@@ -717,6 +810,18 @@ namespace EndpointSecurityAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_download_events_devices_device_id");
+
+                    b.Navigation("Device");
+                });
+
+            modelBuilder.Entity("EndpointSecurityAPI.Entities.FileRiskRecord", b =>
+                {
+                    b.HasOne("EndpointSecurityAPI.Entities.Device", "Device")
+                        .WithMany()
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_file_risk_records_devices_device_id");
 
                     b.Navigation("Device");
                 });

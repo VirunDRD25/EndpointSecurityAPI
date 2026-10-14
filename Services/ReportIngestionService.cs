@@ -109,12 +109,13 @@ public class ReportIngestionService
         await AddDownloadEventsAsync(device, report, ct);
         await AddUsbEventsAsync(device, report, ct);
         var newExtensions = await UpsertBrowserExtensionsAsync(device, report, ct);
+        var newHighRiskFiles = await AddFileRisksAsync(device, report, ct);
 
         await _db.SaveChangesAsync(ct);
 
         // Generate alerts AFTER save so DeviceId is populated.
         var newExtensionNames = newExtensions.Select(x => x.Name).Distinct().ToList();
-        await _alertService.EvaluateAndCreateAlertsAsync(device, report, ct, newExtensionNames);
+        await _alertService.EvaluateAndCreateAlertsAsync(device, report, ct, newExtensionNames, newHighRiskFiles);
 
         return device;
     }
@@ -265,5 +266,59 @@ public class ReportIngestionService
         }
 
         return newlySeen;
+    }
+
+        /// <summary>
+    /// Metadata-only File Risk Analyzer ingestion: persists new/changed
+    /// FileRiskRecord rows reported by the agent (name, path, extension,
+    /// size, SHA-256, timestamps, computed risk level/reasons — never file
+    /// contents). Batches the existing-record lookup into a single query
+    /// (same pattern as UpsertSoftwareInventoryAsync/UpsertBrowserExtensionsAsync
+    /// above) instead of one query per file, since a device can report
+    /// hundreds of files per cycle. Returns the High-risk subset so
+    /// AlertService can raise a single bundled alert.
+    /// </summary>
+    private async Task<List<FileRiskRecord>> AddFileRisksAsync(Device device, DeviceReportDto report, CancellationToken ct)
+    {
+        var newHighRiskFiles = new List<FileRiskRecord>();
+
+        var existing = await _db.FileRiskRecords
+            .Where(r => r.DeviceId == device.Id)
+            .Select(r => new { r.FilePath, r.FileModifiedUtc })
+            .ToListAsync(ct);
+
+        var lastModifiedByPath = existing
+            .GroupBy(r => r.FilePath)
+            .ToDictionary(g => g.Key, g => g.Max(r => r.FileModifiedUtc));
+
+        foreach (var f in report.FileRisks)
+        {
+            if (lastModifiedByPath.TryGetValue(f.FilePath, out var lastModified) && lastModified >= f.ModifiedUtc)
+                continue;
+
+            var record = new FileRiskRecord
+            {
+                Device = device,
+                FileName = f.FileName,
+                FilePath = f.FilePath,
+                Extension = f.Extension,
+                Category = f.Category,
+                SizeBytes = f.SizeBytes,
+                Sha256 = f.Sha256,
+                FileCreatedUtc = f.CreatedUtc,
+                FileModifiedUtc = f.ModifiedUtc,
+                Location = f.Location,
+                RiskLevel = f.RiskLevel,
+                RiskReasons = f.RiskReasons.ToArray(),
+                DetectedAt = DateTime.UtcNow
+            };
+
+            _db.FileRiskRecords.Add(record);
+
+            if (record.RiskLevel == "High")
+                newHighRiskFiles.Add(record);
+        }
+
+        return newHighRiskFiles;
     }
 }

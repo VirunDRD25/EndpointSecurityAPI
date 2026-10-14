@@ -67,6 +67,9 @@ public class DeviceReportDto
     [JsonPropertyName("wifi")]
     public WifiStatusDto Wifi { get; set; } = new();
 
+    [JsonPropertyName("fileRisks")]
+    public List<FileRiskDto> FileRisks { get; set; } = new();
+
     [JsonPropertyName("riskScore")]
     public int RiskScore { get; set; }
 
@@ -235,4 +238,40 @@ public class BrowserExtensionDto
 
     [JsonPropertyName("installedUtc")]
     public DateTime? InstalledUtc { get; set; }
+}
+
+public class FileRiskDto
+{
+    [JsonPropertyName("fileName")]
+    public string FileName { get; set; } = string.Empty;
+
+    [JsonPropertyName("filePath")]
+    public string FilePath { get; set; } = string.Empty;
+
+    [JsonPropertyName("extension")]
+    public string Extension { get; set; } = string.Empty;
+
+    [JsonPropertyName("category")]
+    public string Category { get; set; } = string.Empty;
+
+    [JsonPropertyName("sizeBytes")]
+    public long SizeBytes { get; set; }
+
+    [JsonPropertyName("sha256")]
+    public string Sha256 { get; set; } = string.Empty;
+
+    [JsonPropertyName("createdUtc")]
+    public DateTime CreatedUtc { get; set; }
+
+    [JsonPropertyName("modifiedUtc")]
+    public DateTime ModifiedUtc { get; set; }
+
+    [JsonPropertyName("location")]
+    public string Location { get; set; } = string.Empty;
+
+    [JsonPropertyName("riskLevel")]
+    public string RiskLevel { get; set; } = "Low";
+
+    [JsonPropertyName("riskReasons")]
+    public List<string> RiskReasons { get; set; } = new();
 }

@@ -17,6 +17,8 @@ public class AppDbContext : DbContext
     public DbSet<EnrollmentToken> EnrollmentTokens => Set<EnrollmentToken>();
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
     public DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
+    public DbSet<FileRiskRecord> FileRiskRecords => Set<FileRiskRecord>();
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -99,6 +101,7 @@ public class AppDbContext : DbContext
         {
             e.HasIndex(u => u.Username).IsUnique();
             e.Property(u => u.Username).HasMaxLength(100);
+            e.Property(u => u.Email).HasMaxLength(255);
         });
 
         modelBuilder.Entity<SystemSettings>(e =>
@@ -122,7 +125,18 @@ public class AppDbContext : DbContext
                 UpdatedUtc = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             });
         });
-
+        modelBuilder.Entity<FileRiskRecord>(entity =>
+        {
+            entity.Property(e => e.FileName).HasMaxLength(260);
+            entity.Property(e => e.FilePath).HasMaxLength(1000);
+            entity.Property(e => e.Sha256).HasMaxLength(64);
+            entity.HasIndex(e => e.Sha256);            // powers "same file on multiple devices"
+            entity.HasIndex(e => new { e.DeviceId, e.FilePath });
+            entity.HasOne(e => e.Device)
+                .WithMany()
+                .HasForeignKey(e => e.DeviceId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
         // ---- PostgreSQL-specific: force every DateTime column to timestamptz ----
         // Every DateTime in this codebase is DateTime.UtcNow (Kind=Utc).
         // Npgsql's default mapping for a plain `DateTime` property is

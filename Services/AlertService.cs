@@ -8,8 +8,8 @@ namespace EndpointSecurityAPI.Services;
 /// <summary>
 /// Turns report findings into Alert rows for the dashboard. Kept separate
 /// from ReportIngestionService (single responsibility) and separate from
-/// notification delivery (Phase 5 will add an EmailNotificationService that
-/// watches for NotificationSent == false and sends/marks them).
+/// notification delivery (EmailNotificationService watches for
+/// NotificationSent == false and sends/marks them).
 /// </summary>
 public class AlertService
 {
@@ -24,7 +24,7 @@ public class AlertService
         _settingsProvider = settingsProvider;
     }
 
-    public async Task EvaluateAndCreateAlertsAsync(Device device, DeviceReportDto report, CancellationToken ct, List<string>? newlySeenExtensionNames = null)
+    public async Task EvaluateAndCreateAlertsAsync(Device device, DeviceReportDto report, CancellationToken ct, List<string>? newlySeenExtensionNames = null, List<FileRiskRecord>? newHighRiskFiles = null)
 {
     var newAlerts = new List<Alert>();
 
@@ -76,10 +76,28 @@ public class AlertService
         newAlerts.Add(BuildAlert(device, AlertType.NewBrowserExtension, AlertSeverity.Medium,
             $"New browser extension(s) installed: {string.Join(", ", newlySeenExtensionNames)}"));
 
+    // --- File Risk Analyzer: bundle every newly-detected high-risk file
+    // from this report into a single alert (same pattern as
+    // BlacklistedExtension/DeveloperModeExtension above), rather than one
+    // alert per file. newHighRiskFiles is computed in
+    // ReportIngestionService.AddFileRisksAsync() before save and passed in
+    // here after save so record IDs/DeviceId are populated.
+    if (newHighRiskFiles is { Count: > 0 })
+    {
+        var fileDescriptions = newHighRiskFiles.Select(f =>
+            $"{f.FileName} ({f.Location}) — {string.Join(", ", f.RiskReasons)}");
+        newAlerts.Add(BuildAlert(device, AlertType.HighRiskFile, AlertSeverity.High,
+            $"High-risk file(s) detected: {string.Join(" | ", fileDescriptions)}"));
+    }
+
     // --- HighRiskScore: handled separately so we can UPDATE the message
     // on an existing open alert (threshold value in the message changes
     // when admin edits Configuration) instead of just skipping it via
     // the de-dupe check and showing a stale threshold forever.
+    //
+    // The message includes the actual contributing risk factors (not just
+    // the score) so EmailNotificationService can put "why" in the email
+    // without needing to re-query anything.
     var thresholds = await _settingsProvider.GetAlertThresholdsAsync(ct);
     int highRiskThreshold = thresholds.HighRiskThreshold;
 
@@ -90,10 +108,18 @@ public class AlertService
 
     if (report.RiskScore >= highRiskThreshold)
     {
-        string message = $"Device risk score reached {report.RiskScore} (threshold: {highRiskThreshold}).";
+        string factorsText = report.RiskFactors is { Count: > 0 }
+            ? string.Join("; ", report.RiskFactors)
+            : "No specific contributing factors were recorded.";
+
+        string message = $"Device risk score reached {report.RiskScore} (threshold: {highRiskThreshold}). Contributing factors: {factorsText}";
+
         if (existingHighRisk is not null)
         {
-            // Update message in place so the threshold number stays current.
+            // Update message in place so the threshold/factors stay current.
+            // Note: this does NOT re-trigger a notification email — that
+            // only fires once, when the alert is first created (see
+            // NotificationSent on the Alert entity).
             existingHighRisk.Message = message;
         }
         else

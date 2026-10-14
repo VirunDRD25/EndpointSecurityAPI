@@ -39,6 +39,16 @@ builder.Services.AddAuthentication(options =>
     })
     .AddJwtBearer(options =>
     {
+        // Without this, JwtSecurityTokenHandler silently remaps the "sub"
+        // claim to ClaimTypes.NameIdentifier during validation — colliding
+        // with our own explicit ClaimTypes.NameIdentifier claim (the user's
+        // numeric ID) and producing two claims of that type on the
+        // principal, with "sub" (the username) coming first. Any code using
+        // User.FindFirstValue(ClaimTypes.NameIdentifier) then silently gets
+        // the username instead of the ID. Disabling inbound mapping keeps
+        // every claim exactly as it was written into the token.
+        options.MapInboundClaims = false;
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -64,6 +74,7 @@ builder.Services.AddScoped<SystemSettingsProvider>();
 builder.Services.AddScoped<SoftwareReauthorizationService>();
 builder.Services.AddScoped<RiskScoreRecomputeService>();
 builder.Services.AddHostedService<StaleDeviceCheckService>();
+builder.Services.AddHostedService<EmailNotificationService>();
 
 // ---------- MVC / Swagger ----------
 builder.Services.AddControllers();
