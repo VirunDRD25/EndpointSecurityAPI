@@ -6,12 +6,30 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
+//var builder = WebApplication.CreateBuilder(args);
+//builder.Configuration.Sources.Clear();
+//builder.Configuration
+   // .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+   // .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
+   // .AddEnvironmentVariables();
+//--------------------------------------------------------
 var builder = WebApplication.CreateBuilder(args);
+
 builder.Configuration.Sources.Clear();
+
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
-    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
-    .AddEnvironmentVariables();
+    .AddJsonFile(
+        $"appsettings.{builder.Environment.EnvironmentName}.json",
+        optional: true,
+        reloadOnChange: false);
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>(optional: true);
+}
+
+builder.Configuration.AddEnvironmentVariables();
 
 // ---------- Database (PostgreSQL via Supabase) ----------
 var connectionString = builder.Configuration.GetConnectionString("Default")

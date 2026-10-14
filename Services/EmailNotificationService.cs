@@ -100,14 +100,30 @@ public class EmailNotificationService : BackgroundService
 
     private async Task SendEmailAsync(List<string> recipients, Alert alert, CancellationToken ct)
     {
+        
         var smtp = _config.GetSection("Smtp");
-        string host = smtp["Host"] ?? throw new InvalidOperationException("Smtp:Host is not configured.");
+
+        string host = smtp["Host"]
+            ?? throw new InvalidOperationException("Smtp:Host is not configured.");
+
         int port = int.TryParse(smtp["Port"], out var p) ? p : 587;
-        bool enableSsl = !bool.TryParse(smtp["EnableSsl"], out var ssl) || ssl; // default true
+
+        bool enableSsl = !bool.TryParse(smtp["EnableSsl"], out var ssl) || ssl;
+
         string username = smtp["Username"] ?? "";
         string password = smtp["Password"] ?? "";
         string fromAddress = smtp["FromAddress"] ?? username;
         string fromName = smtp["FromName"] ?? "Endpoint Security Alerts";
+
+if (string.IsNullOrWhiteSpace(username))
+    throw new InvalidOperationException("Smtp:Username is not configured.");
+
+if (string.IsNullOrWhiteSpace(password))
+    throw new InvalidOperationException("Smtp:Password is not configured.");
+
+if (string.IsNullOrWhiteSpace(fromAddress))
+    throw new InvalidOperationException("Smtp:FromAddress is not configured.");
+
 
         if (!string.IsNullOrEmpty(username) && string.IsNullOrEmpty(password))
             throw new InvalidOperationException(
